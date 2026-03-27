@@ -2,6 +2,11 @@
 
 A modern, full-stack Admin Dashboard built for managing products, coordinating user roles, and monitoring system data. Engineered with a scalable MERN stack (MongoDB, Express, React, Node.js) and dynamically styled with Tailwind CSS.
 
+## 🔑 Demo Credentials
+**Admin Access**
+- **Email:** `admin@example.com`
+- **Password:** `admin@password`
+
 ## 🚀 Key Features
 
 ### 🔐 Advanced Authentication & RBAC
