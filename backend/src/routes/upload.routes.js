@@ -49,12 +49,9 @@ router.post("/", upload.single("image"), (req, res) => {
     return res.status(400).send("No image uploaded");
   }
 
-  // Construct the static URL correctly
-  // Assuming the server runs on localhost:8000, 
-  // we could return just the absolute path if frontend prefixes it, 
-  // or return the full localhost URL. 
-  // Given that it's an API, it's safer to return the relative path from the server root
-  const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+  // Construct the static URL dynamically based on the request host
+  const hostUrl = `${req.protocol}://${req.get("host")}`;
+  const backendUrl = process.env.BACKEND_URL || hostUrl;
   res.send({
     message: "Image uploaded successfully",
     image: `${backendUrl}/uploads/${req.file.filename}`,

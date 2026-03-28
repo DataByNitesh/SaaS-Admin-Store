@@ -22,6 +22,8 @@ const Products = () => {
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
   const handleNewChange = (e) => {
     setNewProduct({
@@ -34,6 +36,7 @@ const Products = () => {
     e.preventDefault();
 
     try {
+      setIsLoading(true);
       const token = localStorage.getItem("token");
       let finalImageUrl = newProduct.image;
 
@@ -49,7 +52,7 @@ const Products = () => {
         finalImageUrl = uploadRes.data.image;
       }
 
-      const productToCreate = { ...newProduct, image: finalImageUrl };
+      const productToCreate = { ...newProduct, price: Number(newProduct.price), image: finalImageUrl };
 
       const res = await API.post("/products", productToCreate, {
         headers: {
@@ -70,11 +73,14 @@ const Products = () => {
       setShowCreateForm(false);
     } catch (error) {
       console.log("Create error:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const fetchProducts = async () => {
     try {
+      setIsFetching(true);
       let url = `/products?search=${search}&page=${page}&limit=8`;
       if (category) url += `&category=${category}`;
       if (sort) url += `&sort=${sort}`;
@@ -84,6 +90,8 @@ const Products = () => {
       setTotalPages(res.data.totalPages || 1);
     } catch (error) {
       console.log("Fetch error:", error);
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -142,6 +150,7 @@ const Products = () => {
 
   const handleUpdate = async () => {
     try {
+      setIsLoading(true);
       const token = localStorage.getItem("token");
       let finalImageUrl = editData.image;
 
@@ -157,7 +166,7 @@ const Products = () => {
         finalImageUrl = uploadRes.data.image;
       }
 
-      const updatedProductData = { ...editData, image: finalImageUrl };
+      const updatedProductData = { ...editData, price: Number(editData.price), image: finalImageUrl };
 
       const res = await API.put(`/products/${editingId}`, updatedProductData, {
         headers: {
@@ -176,13 +185,18 @@ const Products = () => {
       alert("Failed to update product");
       setEditingId(null);
       setEditImageFile(null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="p-8 min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
-        <h1 className="text-4xl font-bold">Products</h1>
+        <h1 className="text-4xl font-bold flex items-center gap-3">
+          Products
+          {isFetching && <span className="w-6 h-6 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></span>}
+        </h1>
         {isAdmin && (
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -245,14 +259,32 @@ const Products = () => {
             {["name", "price", "category", "stock"].map((field) => (
               <div key={field} className="flex flex-col gap-1">
                 <label className="text-sm text-gray-400 capitalize font-medium">{field}</label>
-                <input
-                  name={field}
-                  type={field === "price" || field === "stock" ? "number" : "text"}
-                  placeholder={`Enter ${field}`}
-                  value={newProduct[field]}
-                  onChange={handleNewChange}
-                  className="p-3 bg-gray-900 rounded-lg outline-none focus:ring-2 focus:ring-green-500 transition w-full shadow-inner"
-                />
+                {field === "price" ? (
+                  <input
+                    name={field}
+                    type="text"
+                    placeholder="Enter price"
+                    value={
+                      newProduct.price
+                        ? "₹ " + new Intl.NumberFormat("en-IN").format(newProduct.price)
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const rawValue = e.target.value.replace(/[^0-9]/g, "");
+                      setNewProduct({ ...newProduct, price: rawValue });
+                    }}
+                    className="p-3 bg-gray-900 rounded-lg outline-none focus:ring-2 focus:ring-green-500 transition w-full shadow-inner"
+                  />
+                ) : (
+                  <input
+                    name={field}
+                    type={field === "stock" ? "number" : "text"}
+                    placeholder={`Enter ${field}`}
+                    value={newProduct[field]}
+                    onChange={handleNewChange}
+                    className="p-3 bg-gray-900 rounded-lg outline-none focus:ring-2 focus:ring-green-500 transition w-full shadow-inner"
+                  />
+                )}
               </div>
             ))}
 
@@ -292,9 +324,17 @@ const Products = () => {
 
             <button
               type="submit"
-              className="md:col-span-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 p-3.5 rounded-lg font-bold text-lg hover:scale-[1.01] transition shadow-lg w-full flex justify-center items-center gap-2 mt-2"
+              disabled={isLoading}
+              className="md:col-span-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 p-3.5 rounded-lg font-bold text-lg hover:scale-[1.01] transition shadow-lg w-full flex justify-center items-center gap-3 mt-2 disabled:opacity-50"
             >
-              Confirm & Save Product
+              {isLoading ? (
+                <>
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Saving...
+                </>
+              ) : (
+                "Confirm & Save Product"
+              )}
             </button>
           </form>
         </div>
@@ -375,12 +415,29 @@ const Products = () => {
 
             {/* STOCK */}
             {editingId === product._id ? (
-              <input
-                name="stock"
-                value={editData.stock}
-                onChange={handleChange}
-                className="w-full p-2 bg-gray-800 rounded mt-2"
-              />
+              <div className="flex items-center mt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditData({...editData, stock: Math.max(0, Number(editData.stock || 0) - 1)})}
+                  className="bg-gray-700 hover:bg-gray-600 w-9 h-9 flex-shrink-0 rounded-l-md text-white font-bold flex items-center justify-center transition focus:outline-none"
+                >
+                  -
+                </button>
+                <input
+                  name="stock"
+                  type="number"
+                  value={editData.stock}
+                  onChange={handleChange}
+                  className="w-full h-9 p-2 bg-gray-800 text-center outline-none focus:ring-1 focus:ring-green-500 [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setEditData({...editData, stock: Number(editData.stock || 0) + 1})}
+                  className="bg-gray-700 hover:bg-gray-600 w-9 h-9 flex-shrink-0 rounded-r-md text-white font-bold flex items-center justify-center transition focus:outline-none"
+                >
+                  +
+                </button>
+              </div>
             ) : (
               <p className="text-sm mt-2 text-gray-300">
                 Stock: {product.stock}
@@ -393,9 +450,10 @@ const Products = () => {
                 {editingId === product._id ? (
                   <button
                     onClick={handleUpdate}
-                    className="flex-1 bg-green-600 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition"
+                    disabled={isLoading}
+                    className="flex-1 bg-green-600 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    Save
+                    {isLoading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : "Save"}
                   </button>
                 ) : (
                   <button
